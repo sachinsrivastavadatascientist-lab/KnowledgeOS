@@ -1,0 +1,17 @@
+python-dotenv
+ipykernel
+langchain==1.2.18
+langchain-core
+langgraph==1.1.10
+langsmith==0.8.3
+langchain_groq==1.1.2
+langchain_community==0.4.1
+langchain_huggingface==1.2.2
+openai
+streamlit
+duckduckgo-search
+ddgs
+faiss-cpu
+sentence-transformers
+
+-e .

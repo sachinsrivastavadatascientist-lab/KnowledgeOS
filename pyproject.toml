@@ -1,0 +1,30 @@
+[project]
+name = "knowledgeos"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    {name = "Sachin Srivastava", email = "sachinsrivastavadatascientist@gmail.com"}
+]
+
+dependencies = [
+    "ipykernel>=7.3.0",
+    "python-dotenv",
+    "langchain==1.2.18",
+    "langchain-core",
+    "langgraph==1.1.10",
+    "langsmith==0.8.3",
+    "langchain-groq==1.1.2",
+    "langchain-community==0.4.1",
+    "langchain-huggingface==1.2.2",
+    "openai",
+    "streamlit",
+    "duckduckgo-search",
+    "ddgs",
+    "faiss-cpu",
+    "sentence-transformers",
+    "structlog",
+    "pymupdf",
+    
+]

@@ -7,6 +7,7 @@ class CustomLogger:
 
         # Ensure the directory exists
         self.log_dir = os.path.join(os.getcwd(),log_dir)
+        print(os.getcwd()) ################
         os.makedirs(self.log_dir,exist_ok=True)
         
         # create time stamped log file name

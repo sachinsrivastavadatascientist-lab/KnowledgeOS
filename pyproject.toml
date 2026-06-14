@@ -26,5 +26,7 @@ dependencies = [
     "sentence-transformers",
     "structlog",
     "pymupdf",
+    "langchain-google-genai",
+    "langchain-openai",
     
 ]

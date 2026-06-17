@@ -1,17 +1,39 @@
 import os
+import sys
 from utils.model_loader import ModelLoader
 from logger.custom_logger import CustomLogger
 from exception.custom_exception import DocumentPortalException
 from model.models import*
-from langchain_core.output_parsers import JsonOutputParser
-from langchain.output_parsers import OutputFixingParser
+from prompt.prompt_library import*
 
 
 class DocumentAnalyzer:
     '''
     '''
     def __init__(self):
-        pass
+        self.log = CustomLogger().get_logger(__name__)
+        try:
+            self.loader = ModelLoader()
+            self.llm = self.loader.load_llm()
 
-    def analyze_document(self):
-        pass
+            # prepare parser
+            self.structured_llm = self.llm.with_structured_output(Metadata)
+            self.prompt=prompt
+            self.log.info("DocumentAnalyzer initalized sucessfully")
+        except Exception as e:
+            self.log.error(f"Error initalizing DocumentAnalyzer: {e}")
+            raise DocumentPortalException(f"Error in initalizing DocumentAnalyzer",sys)
+
+    def analyze_document(self,document_text):
+        try:
+            chain = self.prompt | self.structured_llm
+            self.log.info("Metadata analysis chain intialized")
+            
+            response = chain.invoke({
+            "document_text": document_text
+        })
+
+            return response
+        except Exception as e:
+            self.log.error(f"Error analyzing document: {e}")
+            raise DocumentPortalException(f"Error in analyzing document",sys)

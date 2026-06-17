@@ -11,6 +11,8 @@ from exception.custom_exception import DocumentPortalException
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+
 
 # intializing logger
 log = CustomLogger().get_logger(__name__)
@@ -25,7 +27,8 @@ class ModelLoader:
     def _validate_env(self):
         required_vars=["GROQ_API_KEY",
                         "OPENAI_API_KEY",
-                         "GOOGLE_API_KEY"]
+                         "GOOGLE_API_KEY",
+                         "ANTHROPIC_API_KEY"]
         self.api_keys={key:os.getenv(key) for key in required_vars}
         missing = [k for k,v in self.api_keys.items() if not v]
         if missing:
@@ -39,7 +42,7 @@ class ModelLoader:
             model_name = self.config["embedding_model"]["model_name"]
             return HuggingFaceEmbeddings(model_name=model_name)
         except Exception as e:
-            log.error("Error loading embedding model",error=str(e),model_name=self.config["embedding"]["model_name"])
+            log.error("Error loading embedding model",error=str(e),model_name=self.config["embedding_model"]["model_name"])
             raise DocumentPortalException("Error loading embedding model",sys)
 
     def load_llm(self):
@@ -47,7 +50,7 @@ class ModelLoader:
         log.info("Loading LLM")
         
         # choose from ENV or default provider
-        provider_key = os.getenv("LLM_PROVIDER","groq") # Default groq
+        provider_key = os.getenv("LLM_PROVIDER","anthropic") # Default groq
         if not provider_key or provider_key.lower() not in llm_block:
             log.error("LLM provider not found in config",provider_key=provider_key)
             raise DocumentPortalException("LLM provider not found in config",sys)
@@ -87,6 +90,16 @@ class ModelLoader:
                 api_key=self.api_keys["OPENAI_API_KEY"]
             )   
             return llm
+
+        elif provider == "anthropic":
+            llm = ChatAnthropic(
+                    model=model_name,
+                    max_tokens=max_tokens,
+                    api_key=self.api_keys["ANTHROPIC_API_KEY"]
+                )
+
+            return llm   
+            
 
 
 if __name__ == "__main__":

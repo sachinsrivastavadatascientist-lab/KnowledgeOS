@@ -28,5 +28,7 @@ dependencies = [
     "pymupdf",
     "langchain-google-genai",
     "langchain-openai",
+    "langchain_anthropic",
+    "pypdf"
     
 ]

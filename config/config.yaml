@@ -14,3 +14,9 @@ llm:
     model_name: "llama-3.1-8b-instant"
     temperature: 0.8
     max_output_tokens: 2048
+
+  anthropic:
+    provider: "anthropic"
+    model_name: "claude-haiku-4-5-20251001"
+    temperature: 0.8
+    max_output_tokens: 2048  

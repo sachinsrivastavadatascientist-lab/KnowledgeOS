@@ -29,6 +29,10 @@ dependencies = [
     "langchain-google-genai",
     "langchain-openai",
     "langchain_anthropic",
-    "pypdf"
-    
+    "pypdf",
+    "pandas",
+    "streamlit",
+    "pytest",
+    "langchain-core[tracing]",
+    "docx2txt"
 ]

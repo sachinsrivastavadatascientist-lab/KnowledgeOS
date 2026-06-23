@@ -1,6 +1,8 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field,RootModel
 from typing import Optional, List, Dict, Any
 from typing import List, Union
+from enum import Enum
+
 
 
 class Metadata(BaseModel):
@@ -15,6 +17,22 @@ class Metadata(BaseModel):
     PageCount:Union[int,str]=Field(description="Page count of the document")
     DocumentCategory:str = Field(description="Category of the document")
     SentimentTone:str
+
+class ChangeFormat(BaseModel):
+    page:str
+    changes: str
+
+class SummaryResponse(BaseModel):
+    changes: List[ChangeFormat] 
+
+class PromptType(str,Enum):
+    DOCUMENT_ANALYSIS = "document_analysis"
+    DOCUMENT_COMPARISON = "document_comparison"
+    CONTEXTUALIZE_QUESTION = "contextualize_question"
+    CONTEXT_QA = "context_qa"
+    
+        
+
 
     
     

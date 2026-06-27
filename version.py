@@ -1,14 +1,6 @@
-[project]
-name = "knowledgeos"
-version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
-requires-python = ">=3.11"
-authors = [
-    {name = "Sachin Srivastava", email = "sachinsrivastavadatascientist@gmail.com"}
-]
+import importlib.metadata
 
-dependencies = [
+packages = [
     "ipykernel>=7.3.0",
     "python-dotenv",
     "langchain==1.2.18",
@@ -42,3 +34,9 @@ dependencies = [
     "pydantic",
     
 ]
+for pkg in packages:
+    try:
+        version = importlib.metadata.version(pkg)
+        print(f"{pkg}=={version}")
+    except importlib.metadata.PackageNotFoundError:
+        print(f"{pkg} (not installed)")

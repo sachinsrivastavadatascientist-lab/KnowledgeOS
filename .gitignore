@@ -5,7 +5,12 @@ build/
 dist/
 wheels/
 *.egg-info
-test.py
+test.
+
+#folder
+archive
+faiss_index
+data
 
 # Virtual environments
 .venv
@@ -13,3 +18,4 @@ test.py
 # Environment variables
 .env
 logs
+

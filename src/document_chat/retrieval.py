@@ -16,6 +16,7 @@ from exception.custom_exception import DocumentPortalException
 from utils.model_loader import ModelLoader
 from prompt.prompt_library import PROMPT_REGISTRY
 from model.models import PromptType
+FAISS_BASE = os.getenv("FAISS_BASE","faiss_index")
 
 class ConversationalRAG:
     def __init__(self,session_id:str,retriever=None):
@@ -25,10 +26,17 @@ class ConversationalRAG:
             self.llm = self._load_llm()
             self.contextualize_prompt:ChatPromptTemplate = PROMPT_REGISTRY[PromptType.CONTEXTUALIZE_QUESTION.value]
             self.qa_prompt = PROMPT_REGISTRY[PromptType.CONTEXT_QA.value]
-            if retriever is None:
-                raise ValueError("Retriever cannot be None")
-            self.retriever = retriever  
-            self.chain =self._build_lcel_chain()
+            self.retriever = retriever
+
+            # Chain abhi mat banao
+            self.chain = None
+            self.index_path = os.path.join(FAISS_BASE,session_id) 
+
+            if self.retriever is None:
+                self.load_retriever_from_faiss(self.index_path)
+            else:
+                self.chain = self._build_lcel_chain()
+
 
             self.log.info("initate the ConversatinalRAG class",session_id = self.session_id)  
         except Exception as e:
@@ -50,6 +58,8 @@ class ConversationalRAG:
                               allow_dangerous_deserialization=True
                               )   
             self.retriever = vectorstore.as_retriever(search_type = "similarity",search_kwargs={"k":5})
+            
+            self.chain = self._build_lcel_chain()
             self.log.info("FAISS vector store loaded Successfully",session_id = self.session_id,index_path=index_path)
             return self.retriever
         except Exception as e:
@@ -58,6 +68,12 @@ class ConversationalRAG:
 
     def invoke(self,query:str):
         try:
+            if self.chain is None:
+                raise DocumentPortalException(
+                    "RAG chain not initialized. Call load_retriever_from_faiss() first.",
+                    sys
+                )
+
             config = {
                 "configurable":{
                     "session_id":self.session_id
@@ -68,7 +84,7 @@ class ConversationalRAG:
             {
                 "input":query
             },
-            config
+            config=config
         )
 
         except Exception as e:

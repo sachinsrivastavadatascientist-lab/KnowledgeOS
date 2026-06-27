@@ -801,6 +801,22 @@ wheels = [
 ]
 
 [[package]]
+name = "fastapi"
+version = "0.138.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "annotated-doc" },
+    { name = "pydantic" },
+    { name = "starlette" },
+    { name = "typing-extensions" },
+    { name = "typing-inspection" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5b/58/ff455d9fe47c60abadb34b9e05a304b1f05f5ab8000ac01565156b6f5e43/fastapi-0.138.0.tar.gz", hash = "sha256:d445a4877636ad191e7053e08c9bf98cb921a6756776848400bb773d1740c061", size = 419240, upload-time = "2026-06-20T01:18:05.259Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6c/ff/8496d9847a5fedae775eb49460722d3efaa80487854273e9647ae876218c/fastapi-0.138.0-py3-none-any.whl", hash = "sha256:b6f54fd1bd72c80b0f899f172c61a600f6f7af9b43d4d772a018f35624048cb0", size = 126779, upload-time = "2026-06-20T01:18:03.483Z" },
+]
+
+[[package]]
 name = "filelock"
 version = "3.29.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1556,7 +1572,9 @@ dependencies = [
     { name = "docx2txt" },
     { name = "duckduckgo-search" },
     { name = "faiss-cpu" },
+    { name = "fastapi" },
     { name = "ipykernel" },
+    { name = "jinja2" },
     { name = "langchain" },
     { name = "langchain-anthropic" },
     { name = "langchain-community" },
@@ -1569,13 +1587,16 @@ dependencies = [
     { name = "langsmith" },
     { name = "openai" },
     { name = "pandas" },
+    { name = "pydantic" },
     { name = "pymupdf" },
     { name = "pypdf" },
     { name = "pytest" },
     { name = "python-dotenv" },
+    { name = "python-multipart" },
     { name = "sentence-transformers" },
     { name = "streamlit" },
     { name = "structlog" },
+    { name = "uvicorn" },
 ]
 
 [package.metadata]
@@ -1584,7 +1605,9 @@ requires-dist = [
     { name = "docx2txt" },
     { name = "duckduckgo-search" },
     { name = "faiss-cpu" },
+    { name = "fastapi" },
     { name = "ipykernel", specifier = ">=7.3.0" },
+    { name = "jinja2" },
     { name = "langchain", specifier = "==1.2.18" },
     { name = "langchain-anthropic" },
     { name = "langchain-community", specifier = "==0.4.1" },
@@ -1598,13 +1621,16 @@ requires-dist = [
     { name = "langsmith", specifier = "==0.8.3" },
     { name = "openai" },
     { name = "pandas" },
+    { name = "pydantic" },
     { name = "pymupdf" },
     { name = "pypdf" },
     { name = "pytest" },
     { name = "python-dotenv" },
+    { name = "python-multipart" },
     { name = "sentence-transformers" },
     { name = "streamlit" },
     { name = "structlog" },
+    { name = "uvicorn" },
 ]
 
 [[package]]

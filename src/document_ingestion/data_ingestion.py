@@ -101,6 +101,9 @@ class FaissManager:
 
 
 class ChatIngestor:
+    '''
+    Use for building retriever
+    '''
     def __init__(self,
                 temp_base: str ="data/us",
                 faiss_base: str = "faiss_index",

@@ -23,7 +23,6 @@ from utils.document_ops import FastAPIFileAdapter,read_pdf_via_handler
 FAISS_BASE = os.getenv("FAISS_BASE","faiss_index")
 UPLOAD_BASE= os.getenv("UPLOAD_BASE","data")
 retriever_store = {}
-rag_store ={}
 import traceback
 
 ##### for correct code#################
@@ -133,7 +132,6 @@ async def compare_documents(reference:UploadFile=File(...),
         print(type(e))
         print(repr(e))
         raise
-
 @app.post("/chat/index")
 async def chat_build_index(
                      files:List[UploadFile]=File(...),
@@ -153,23 +151,11 @@ async def chat_build_index(
         )
         retriever = ci.build_retriever(wrapped,chunk_size=chunk_size,chunk_overlap=chunk_overlap,k=k)
         retriever_store[ci.session_id] = retriever
-
-        rag = ConversationalRAG(
-            session_id=ci.session_id,
-            retriever=retriever
-        )
-        rag_store[ci.session_id] = rag
         ##############################################
-        print(f"✓ INDEX CREATED - Session ID: {ci.session_id}")
-        print(f"  RAG Store Keys: {list(rag_store.keys())}")
-        print(f"  Retriever Store Keys: {list(retriever_store.keys())}")
+        print("INDEX STORE:", retriever_store)
+        print("INDEX STORE ID:", id(retriever_store))
         ##############################################
-        return {
-            'session_id': ci.session_id,
-            "k": k,
-            "use_session_dirs": use_session_dirs,
-            "status": "index_created"
-        }
+        return {'session_id':ci.session_id,"k":k,"use_session_dirs":use_session_dirs}
     except HTTPException:
         raise
     except Exception as e:
@@ -177,7 +163,6 @@ async def chat_build_index(
         print(type(e))
         print(repr(e))
         raise
-
 @app.post("/chat/query")
 async def chat_query(
               question:str=Form(...),
@@ -186,78 +171,36 @@ async def chat_query(
               k:int =Form(5),
              )->Any:
     try:
-        # ===== VALIDATION =====
         if use_session_dirs and not session_id:
-            raise HTTPException(
-                status_code=400,
-                detail="session_id is required when use_session_dirs is True"
-            )
-        
-        # ===== DEBUG LOGGING =====
-        print(f"\n{'='*60}")
-        print(f"CHAT QUERY REQUEST:")
-        print(f"  Session ID: {session_id}")
-        print(f"  Question: {question[:60]}...")
-        print(f"  Use Session Dirs: {use_session_dirs}")
-        print(f"  K: {k}")
-        print(f"  RAG Store Keys: {list(rag_store.keys())}")
-        print(f"  Retriever Store Keys: {list(retriever_store.keys())}")
-        print(f"{'='*60}\n")
-        
-        # ===== CHECK FAISS INDEX =====
-        index_dir = os.path.join(FAISS_BASE, session_id) if use_session_dirs else FAISS_BASE   
+            raise HTTPException(status_code=400,detail="session_id is required when use_session_dirs is True")
+        #PREPAING FAISS INDEX
+        index_dir = os.path.join(FAISS_BASE,session_id) if use_session_dirs else FAISS_BASE   
         if not os.path.isdir(index_dir):
-            available_sessions = list(rag_store.keys()) or "NONE"
-            raise HTTPException(
-                status_code=404,
-                detail=f"No FAISS index found at '{index_dir}'. Available sessions: {available_sessions}"
-            )
-        
-        # ===== GET RAG FROM STORE =====
-        rag = rag_store.get(session_id)
-        
-        if rag is None:
-            print(f"⚠️  RAG not found in memory for session: '{session_id}'")
-            print(f"    Available RAG sessions: {list(rag_store.keys())}")
-            
-            # FALLBACK: Try to rebuild RAG from retriever
-            retriever = retriever_store.get(session_id)
-            if retriever is None:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"RAG and Retriever not found for session '{session_id}'. "
-                            f"Available sessions: {list(rag_store.keys()) or 'NONE'}. "
-                            f"Did you call /chat/index first?"
-                )
-            
-            print(f"✓ Rebuilding RAG from stored retriever...")
-            rag = ConversationalRAG(
-                session_id=session_id,
-                retriever=retriever
-            )
-            rag_store[session_id] = rag
-        
-        # ===== INVOKE RAG =====
-        print(f"✓ Invoking RAG pipeline...")
+            raise HTTPException(status_code=404,detail="no index found for this session") 
+
+        # INITALIZING LCEL - styleRAG PIPELINE
+        retriever = retriever_store.get(session_id)
+        print(retriever)
+        print(retriever_store.keys())
+        rag = ConversationalRAG(
+            retriever=retriever
+        )
+        #rag.load_retriever_from_faiss(index_dir)
+
+        # optional for rag we pass emty chat history
         response = rag.invoke(question)
-        print(f"✓ Response generated successfully\n")
 
         return {
             "answer": response,
             "session_id": session_id,
             "k": k,
-            "engine": "LCEL-RAG",
-            "status": "success"
+            "engine":"LCEL-RAG"
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"\n{'❌'} ERROR in /chat/query:")
         traceback.print_exc()
-        print(f"Error Type: {type(e).__name__}")
-        print(f"Error Details: {str(e)}\n")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Query failed: {str(e)}"
-        )
+        print(type(e))
+        print(repr(e))
+        raise

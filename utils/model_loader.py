@@ -2,7 +2,8 @@ import os
 import sys
 from dotenv import load_dotenv
 
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_groq import ChatGroq
 from utils.config_loader import load_config
 
@@ -20,6 +21,7 @@ log = CustomLogger().get_logger(__name__)
 class ModelLoader:
     def __init__(self):
         load_dotenv()
+        self.google_api_key = os.getenv("GOOGLE_API_KEY")
         self.config = load_config()
         self._validate_env()
         log.info("Configuration loaded sucessfully",config_keys=list(self.config.keys()))
@@ -36,11 +38,21 @@ class ModelLoader:
             raise DocumentPortalException("Missing enviorment variables",sys)
         log.info("Enviorment variables validated",avilabel_keys = [k for k in self.api_keys.keys() if self.api_keys[k]])
 
+    ####################################################3
+    
+    
+    
+    
+    # ##################################################    
+
     def load_embeddings(self):
         try:
             log.info("Loading embedding model....")
             model_name = self.config["embedding_model"]["model_name"]
-            return HuggingFaceEmbeddings(model_name=model_name)
+           
+            return GoogleGenerativeAIEmbeddings(model=model_name,
+                                    api_key=self.google_api_key)
+                                   
         except Exception as e:
             log.error("Error loading embedding model",error=str(e),model_name=self.config["embedding_model"]["model_name"])
             raise DocumentPortalException("Error loading embedding model",sys)

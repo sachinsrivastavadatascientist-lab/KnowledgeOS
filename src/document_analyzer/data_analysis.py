@@ -34,6 +34,7 @@ class DocumentAnalyzer:
         })
 
             return response
+            self.log.info("Document analyzed sucessfully")
         except Exception as e:
             self.log.error(f"Error analyzing document: {e}")
             raise DocumentPortalException(f"Error in analyzing document",sys)

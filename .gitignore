@@ -19,3 +19,6 @@ data
 .env
 logs
 
+data
+requirements.txt
+setup.py

@@ -17,13 +17,11 @@ dependencies = [
     "langsmith==0.8.3",
     "langchain-groq==1.1.2",
     "langchain-community==0.4.1",
-    "langchain-huggingface==1.2.2",
     "openai",
     "streamlit",
     "duckduckgo-search",
     "ddgs",
     "faiss-cpu",
-    "sentence-transformers",
     "structlog",
     "pymupdf",
     "langchain-google-genai",
@@ -33,12 +31,13 @@ dependencies = [
     "pandas",
     "streamlit",
     "pytest",
-    "langchain-core[tracing]",
     "docx2txt",
     "fastapi",
     "uvicorn",
     "python-multipart",
     "jinja2",
     "pydantic",
+    "langchain_google_genai",
     
 ]
+

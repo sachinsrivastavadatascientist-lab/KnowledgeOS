@@ -29,7 +29,13 @@ jobs:
       - name: Check Python import
         run: |
           uv run python -c "import os; print(os.getcwd())"
-          uv run python -c "import api.main"    
+          uv run python -c "import api.main"
+
+      - name: Debug imports
+        run: |
+          uv run python -c "import sys; print(sys.path)"
+          uv run python -c "import api"
+          uv run python -c "import api.main"        
 
       - name: Run unit tests
         run: uv run pytest tests/

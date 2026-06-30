@@ -40,10 +40,10 @@ jobs:
         run: |
           uv run python -c "import api; print(api)"
           uv run python -c "import api.main; print('SUCCESS')" 
-          
+
       - name: Run tests
         run: |
           uv run python -m pytest tests -v             
 
       - name: Run unit tests
-        run: uv run pytest tests/
+        run: uv run python -m pytest tests -v

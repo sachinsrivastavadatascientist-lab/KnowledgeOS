@@ -48,6 +48,14 @@ class ApiKeyManager:
         if missing:
             log.error("Missing required API keys", missing_keys=missing)
             raise DocumentPortalException("Missing API keys", sys)
+        log.info("API keys loaded", keys={k: v[:6] + "..." for k, v in self.api_keys.items()})
+
+
+    def get(self, key: str) -> str:
+        val = self.api_keys.get(key)
+        if not val:
+            raise KeyError(f"API key for {key} is missing")
+        return val        
 
 class ModelLoader:
     def __init__(self):

@@ -19,8 +19,9 @@ from langchain_anthropic import ChatAnthropic
 
 class ApiKeyManager:
     REQUIRED_KEYS = ["GROQ_API_KEY","ANTHROPIC_API_KEY","GOOGLE_API_KEY"]
-    self.log = CustomLogger().get_logger(__name__)
+    
     def __init__(self):
+        self.log = CustomLogger().get_logger(__name__)
         self.api_keys = {}
         raw = os.getenv("API_KEYS")
 

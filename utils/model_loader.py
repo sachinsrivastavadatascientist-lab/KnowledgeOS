@@ -16,11 +16,10 @@ from langchain_anthropic import ChatAnthropic
 
 
 # intializing logger
-log = CustomLogger().get_logger(__name__)
 
 class ApiKeyManager:
-    REQUIRED_KEYS = ["ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
-
+    REQUIRED_KEYS = ["GROQ_API_KEY","ANTHROPIC_API_KEY","GOOGLE_API_KEY"]
+    self.log = CustomLogger().get_logger(__name__)
     def __init__(self):
         self.api_keys = {}
         raw = os.getenv("API_KEYS")
@@ -31,9 +30,9 @@ class ApiKeyManager:
                 if not isinstance(parsed, dict):
                     raise ValueError("API_KEYS is not a valid JSON object")
                 self.api_keys = parsed
-                log.info("Loaded API_KEYS from ECS secret")
+                self.log.info("Loaded API_KEYS from ECS secret")
             except Exception as e:
-                log.warning("Failed to parse API_KEYS as JSON", error=str(e))
+                self.log.warning("Failed to parse API_KEYS as JSON", error=str(e))
 
         # Fallback to individual env vars
         for key in self.REQUIRED_KEYS:
@@ -41,30 +40,39 @@ class ApiKeyManager:
                 env_val = os.getenv(key)
                 if env_val:
                     self.api_keys[key] = env_val
-                    log.info(f"Loaded {key} from individual env var")
+                    self.log.info(f"Loaded {key} from individual env var")
 
         # Final check
         missing = [k for k in self.REQUIRED_KEYS if not self.api_keys.get(k)]
         if missing:
-            log.error("Missing required API keys", missing_keys=missing)
+            self.log.error("Missing required API keys", missing_keys=missing)
             raise DocumentPortalException("Missing API keys", sys)
-        log.info("API keys loaded", keys={k: v[:6] + "..." for k, v in self.api_keys.items()})
+
+        self.log.info("API keys loaded", keys={k: v[:6] + "..." for k, v in self.api_keys.items()})
 
 
     def get(self, key: str) -> str:
         val = self.api_keys.get(key)
         if not val:
             raise KeyError(f"API key for {key} is missing")
-        return val        
+        return val
+
 
 class ModelLoader:
+    """
+    Loads embedding models and LLMs based on config and environment.
+    """
+
     def __init__(self):
-        load_dotenv()
-        self.google_api_key = os.getenv("GOOGLE_API_KEY")
+        if os.getenv("ENV", "local").lower() != "production":
+            load_dotenv()
+            self.log.info("Running in LOCAL mode: .env loaded")
+        else:
+            self.log.info("Running in PRODUCTION mode")
+
+        self.api_key_mgr = ApiKeyManager()
         self.config = load_config()
-        self._validate_env()
-        log.info("Configuration loaded sucessfully",config_keys=list(self.config.keys()))
-        log.info("API keys loaded", keys={k: v[:6] + "..." for k, v in self.api_keys.items()})
+        self.log.info("YAML config loaded", config_keys=list(self.config.keys()))
 
 
     def get(self, key: str) -> str:
@@ -82,9 +90,9 @@ class ModelLoader:
         self.api_keys={key:os.getenv(key) for key in required_vars}
         missing = [k for k,v in self.api_keys.items() if not v]
         if missing:
-            log.error("Missing enviorment variables",missing_vars=missing)
+            self.log.error("Missing enviorment variables",missing_vars=missing)
             raise DocumentPortalException("Missing enviorment variables",sys)
-        log.info("Enviorment variables validated",avilabel_keys = [k for k in self.api_keys.keys() if self.api_keys[k]])
+        self.log.info("Enviorment variables validated",avilabel_keys = [k for k in self.api_keys.keys() if self.api_keys[k]])
 
     ####################################################3
     

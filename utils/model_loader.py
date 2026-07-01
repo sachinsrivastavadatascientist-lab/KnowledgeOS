@@ -104,19 +104,19 @@ class ModelLoader:
 
     def load_embeddings(self):
         try:
-            log.info("Loading embedding model....")
+            self.log.info("Loading embedding model....")
             model_name = self.config["embedding_model"]["model_name"]
            
             return GoogleGenerativeAIEmbeddings(model=model_name,
-                                    api_key=self.google_api_key)
+                                    api_key=self.api_key_mgr.get("GOOGLE_API_KEY"))
                                    
         except Exception as e:
-            log.error("Error loading embedding model",error=str(e),model_name=self.config["embedding_model"]["model_name"])
+            self.log.error("Error loading embedding model",error=str(e),model_name=self.config["embedding_model"]["model_name"])
             raise DocumentPortalException("Error loading embedding model",sys)
 
     def load_llm(self):
         llm_block = self.config["llm"]
-        log.info("Loading LLM")
+        self.log.info("Loading LLM")
         
         # choose from ENV or default provider
         provider_key = os.getenv("LLM_PROVIDER","anthropic") # Default groq

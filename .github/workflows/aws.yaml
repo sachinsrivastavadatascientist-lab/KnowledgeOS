@@ -89,21 +89,6 @@ jobs:
       - name: Print Rendered Task
         run: cat ${{ steps.render-task.outputs.task-definition }}
 
-      # ---- NEW STEP GOES HERE ----
-      - name: Create ECS Service if it doesn't exist
-        run: |
-          aws ecs describe-services --cluster ${{ env.ECS_CLUSTER }} --services ${{ env.ECS_SERVICE }} --region ${{ env.AWS_REGION }} \
-            --query "services[?status=='ACTIVE']" --output text | grep -q . || \
-          aws ecs create-service \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --service-name ${{ env.ECS_SERVICE }} \
-            --task-definition ${{ steps.render-task.outputs.task-definition }} \
-            --desired-count 1 \
-            --launch-type FARGATE \
-            --network-configuration "awsvpcConfiguration={subnets=[<SUBNET_IDS>],securityGroups=[<SG_IDS>],assignPublicIp=ENABLED}" \
-            --region ${{ env.AWS_REGION }}
-      # -----------------------------
-
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:

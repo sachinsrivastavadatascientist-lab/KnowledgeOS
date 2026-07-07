@@ -36,4 +36,5 @@ jobs:
       - name: Run unit tests
         run: uv run python -m pytest tests -v
         env:
-          MONGODB_URI: mongodb://localhost:27017   # 👈 agar tumhara code env var use karta hai
+          MONGO_URL: ${{ secrets.MONGO_URL }}
+          MONGODB_URL: mongodb://localhost:27017   # 👈 agar tumhara code env var use karta hai

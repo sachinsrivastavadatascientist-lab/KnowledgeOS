@@ -8,6 +8,9 @@ from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from utils.session_manager import SessionManager
 from fastapi.responses import StreamingResponse
+from utils.s3_manager import S3Manager
+import tempfile
+import shutil
 
 
 from src.document_ingestion.data_ingestion import(
@@ -197,10 +200,17 @@ async def chat_query(
         # Load FAISS
         # ==========================================================
 
-        faiss_path = session["faiss_path"]
+        temp_dir = tempfile.mkdtemp()
+
+        s3 = S3Manager()
+
+        s3.download_directory(
+            s3_prefix=session_id,
+            local_dir=temp_dir
+        )
 
         faiss_manager = FaissManager(
-            index_dir=faiss_path
+            index_dir=temp_dir
         )
 
         retriever = faiss_manager.load_retriever(
@@ -238,8 +248,19 @@ async def chat_query(
         )
 
 
+        def stream():
+
+            try:
+                yield from rag.invoke(question)
+
+            finally:
+                shutil.rmtree(
+                    temp_dir,
+                    ignore_errors=True
+                )
+
         return StreamingResponse(
-            rag.invoke(question),
+            stream(),
             media_type="text/plain"
         )
 

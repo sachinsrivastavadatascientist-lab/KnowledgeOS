@@ -18,6 +18,8 @@ from exception.custom_exception import DocumentPortalException
 from utils.model_loader import ModelLoader
 from utils.file_io import generate_session_id, save_uploaded_files
 from utils.document_ops import load_documents, concat_for_analysis, concat_for_comparison
+from utils.s3_manager import S3Manager
+import shutil
 
 from logger.custom_logger import CustomLogger
 
@@ -129,6 +131,7 @@ class ChatIngestor:
             self.use_session = use_session_dirs
             self.session_id =session_id or generate_session_id()
             self.user_id = user_id
+            self.s3 = S3Manager()
 
             self.temp_base = Path(temp_base);self.temp_base.mkdir(parents=True,exist_ok=True)
             self.faiss_base = Path(faiss_base);self.faiss_base.mkdir(parents=True,exist_ok=True)
@@ -182,6 +185,15 @@ class ChatIngestor:
                 search_type="similarity",
                 search_kwargs={"k": k}
             )
+            self.s3.upload_directory(
+                    local_dir=self.faiss_manager.index_dir,
+                    s3_prefix=self.session_id
+            )
+
+            shutil.rmtree(
+                self.faiss_manager.index_dir
+             )
+
             return retriever
             #self.log.info("Retriever built successfully", added=added, chunks=len(chunks),session_id=self.session_id)
         except Exception as e:

@@ -6,6 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
+from utils.session_manager import SessionManager
+from fastapi.responses import StreamingResponse
+
 
 from src.document_ingestion.data_ingestion import(
     DocHandler,
@@ -22,8 +25,7 @@ from utils.document_ops import FastAPIFileAdapter,read_pdf_via_handler
 
 FAISS_BASE = os.getenv("FAISS_BASE","faiss_index")
 UPLOAD_BASE= os.getenv("UPLOAD_BASE","data")
-retriever_store = {}
-rag_store ={}
+session_manager = SessionManager()
 import traceback
 
 ##### for correct code#################
@@ -66,31 +68,6 @@ async def serve_ui(request: Request):
 @app.get("/health")
 def health()->Dict[str,str]:
     return {"status":"ok","service":"knowledge-os"}
-
-# class FastAPIFileAdapter:
-#     """Adapt FastAPI UploadFile -> .name + .getbuffer() API"""
-#     def __init__(self, uf: UploadFile):
-#         self._uf = uf
-#         self.name = uf.filename
-#     def getbuffer(self) -> bytes:
-#         self._uf.file.seek(0)
-#         return self._uf.file.read()
-
-# def _read_pdf_via_handler(handler: DocHandler, path: str) -> str:
-#     """
-#     Helper function to read PDF using DocHandler.
-#     """
-#     try:
-#         if hasattr(handler, "read_pdf"):
-#             return handler.read_pdf(path)  # type: ignore
-#         if hasattr(handler, "read_"):
-#             return handler.read_(path)  # type: ignore
-#         raise RuntimeError("DocHandler has neither read_pdf nor read_ method.")
-
-    # except Exception as e:
-    #     return handler.read_pdf(path)
-    #     raise HTTPException(status_code=
-    # \500, detail=f"Error reading PDF: {str(e)}")        
 
 
 @app.post("/analyze")
@@ -137,39 +114,34 @@ async def compare_documents(reference:UploadFile=File(...),
 @app.post("/chat/index")
 async def chat_build_index(
                      files:List[UploadFile]=File(...),
-                     session_id:Optional[str]=Form(None),
                      use_session_dirs: bool = Form(True),
                      chunk_size: int = Form(1000),
                      chunk_overlap: int =Form(200),
+                     user_id: str = Form(...),
                      k: int =Form(5),
                 )->Any:
     try:
+        session_id = session_manager.generate_session_id(user_id)
         wrapped = [FastAPIFileAdapter(f) for f in files]
         ci = ChatIngestor(
                   temp_base=UPLOAD_BASE,
                   faiss_base=FAISS_BASE,
                   use_session_dirs=use_session_dirs,
-                  session_id=session_id or None,
+                  session_id=session_id,
+                  user_id=user_id,
         )
         retriever = ci.build_retriever(wrapped,chunk_size=chunk_size,chunk_overlap=chunk_overlap,k=k)
-        retriever_store[ci.session_id] = retriever
-
-        rag = ConversationalRAG(
-            session_id=ci.session_id,
-            retriever=retriever
+        faiss_path = str(ci.faiss_manager.index_dir)
+        session_manager.create_session(
+            session_id=session_id,
+            user_id=user_id,
+            faiss_path=faiss_path
         )
-        rag_store[ci.session_id] = rag
-        ##############################################
-        print(f"✓ INDEX CREATED - Session ID: {ci.session_id}")
-        print(f"  RAG Store Keys: {list(rag_store.keys())}")
-        print(f"  Retriever Store Keys: {list(retriever_store.keys())}")
-        ##############################################
-        return {
-            'session_id': ci.session_id,
-            "k": k,
-            "use_session_dirs": use_session_dirs,
-            "status": "index_created"
+
+        return {"session_id": session_id,
+                "status": "index_created"
         }
+    
     except HTTPException:
         raise
     except Exception as e:
@@ -180,84 +152,115 @@ async def chat_build_index(
 
 @app.post("/chat/query")
 async def chat_query(
-              question:str=Form(...),
-              session_id:Optional[str]=Form(None),
-              use_session_dirs: bool = Form(True),
-              k:int =Form(5),
-             )->Any:
+    question: str = Form(...),
+    session_id: Optional[str] = Form(None),
+    user_id: str = Form(...),
+    use_session_dirs: bool = Form(True),
+    k: int = Form(5),
+) -> Any:
+
     try:
+
         # ===== VALIDATION =====
         if use_session_dirs and not session_id:
             raise HTTPException(
                 status_code=400,
-                detail="session_id is required when use_session_dirs is True"
+                detail="session_id is required when use_session_dirs=True"
             )
-        
-        # ===== DEBUG LOGGING =====
+
         print(f"\n{'='*60}")
-        print(f"CHAT QUERY REQUEST:")
-        print(f"  Session ID: {session_id}")
-        print(f"  Question: {question[:60]}...")
-        print(f"  Use Session Dirs: {use_session_dirs}")
-        print(f"  K: {k}")
-        print(f"  RAG Store Keys: {list(rag_store.keys())}")
-        print(f"  Retriever Store Keys: {list(retriever_store.keys())}")
+        print("CHAT QUERY REQUEST")
+        print(f"User ID    : {user_id}")
+        print(f"Session ID : {session_id}")
+        print(f"Question   : {question}")
         print(f"{'='*60}\n")
-        
-        # ===== CHECK FAISS INDEX =====
-        index_dir = os.path.join(FAISS_BASE, session_id) if use_session_dirs else FAISS_BASE   
-        if not os.path.isdir(index_dir):
-            available_sessions = list(rag_store.keys()) or "NONE"
+
+        # ==========================================================
+        # Get Session from MongoDB
+        # ==========================================================
+
+        session = session_manager.get_session(
+            session_id=session_id,
+            user_id=user_id
+        )
+
+        if session is None:
             raise HTTPException(
                 status_code=404,
-                detail=f"No FAISS index found at '{index_dir}'. Available sessions: {available_sessions}"
+                detail="Session not found"
             )
-        
-        # ===== GET RAG FROM STORE =====
-        rag = rag_store.get(session_id)
-        
-        if rag is None:
-            print(f"⚠️  RAG not found in memory for session: '{session_id}'")
-            print(f"    Available RAG sessions: {list(rag_store.keys())}")
-            
-            # FALLBACK: Try to rebuild RAG from retriever
-            retriever = retriever_store.get(session_id)
-            if retriever is None:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"RAG and Retriever not found for session '{session_id}'. "
-                            f"Available sessions: {list(rag_store.keys()) or 'NONE'}. "
-                            f"Did you call /chat/index first?"
-                )
-            
-            print(f"✓ Rebuilding RAG from stored retriever...")
-            rag = ConversationalRAG(
-                session_id=session_id,
-                retriever=retriever
-            )
-            rag_store[session_id] = rag
-        
-        # ===== INVOKE RAG =====
-        print(f"✓ Invoking RAG pipeline...")
-        response = rag.invoke(question)
-        print(f"✓ Response generated successfully\n")
 
-        return {
-            "answer": response,
-            "session_id": session_id,
-            "k": k,
-            "engine": "LCEL-RAG",
-            "status": "success"
-        }
-        
+        print("✓ Session Found")
+        print(session)
+
+        # ==========================================================
+        # Load FAISS
+        # ==========================================================
+
+        faiss_path = session["faiss_path"]
+
+        faiss_manager = FaissManager(
+            index_dir=faiss_path
+        )
+
+        retriever = faiss_manager.load_retriever(
+            k=k
+        )
+
+        print("✓ Retriever Loaded")
+
+        # ==========================================================
+        # Build RAG
+        # ==========================================================
+
+        rag = ConversationalRAG(
+            session_id=session_id,
+            retriever=retriever,
+            user_id=user_id,
+        )
+
+        print("✓ RAG Created")
+
+        # ==========================================================
+        # Invoke
+        # ==========================================================
+
+       # rag.invoke(question)
+
+        print("✓ Response Generated")
+
+        # ==========================================================
+        # Update Last Access Time
+        # ==========================================================
+
+        session_manager.touch_session(
+            session_id=session_id
+        )
+
+
+        return StreamingResponse(
+            rag.invoke(question),
+            media_type="text/plain"
+        )
+
+        # return {
+        #     "answer": response,
+        #     "session_id": session_id,
+        #     "user_id": user_id,
+        #     "k": k,
+        #     "engine": "LCEL-RAG",
+        #     "status": "success"
+        # }
+
     except HTTPException:
         raise
+
     except Exception as e:
-        print(f"\n{'❌'} ERROR in /chat/query:")
+
+        print(f"\n{'❌'} ERROR IN /chat/query")
         traceback.print_exc()
-        print(f"Error Type: {type(e).__name__}")
-        print(f"Error Details: {str(e)}\n")
+
         raise HTTPException(
             status_code=500,
-            detail=f"Query failed: {str(e)}"
+            detail=str(e)
         )

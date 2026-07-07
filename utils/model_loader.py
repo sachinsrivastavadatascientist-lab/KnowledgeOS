@@ -22,7 +22,8 @@ class ApiKeyManager:
     REQUIRED_KEYS = [
         "GROQ_API_KEY",
         "GOOGLE_API_KEY",
-        "ANTHROPIC_API_KEY"
+        "ANTHROPIC_API_KEY",
+        "MONGO_URL",
     ]
 
     def __init__(self):

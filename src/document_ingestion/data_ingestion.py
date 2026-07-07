@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 import fitz
 import os
@@ -36,7 +35,7 @@ class FaissManager:
 
         if self.meta_path.exists():
             try:
-                self._meta = json.load(self.meta_path.read_text(encoding="utf-8")) or {"rows":{}}
+                self._meta = json.loads(self.meta_path.read_text(encoding="utf-8")) or {"rows":{}}
             except Exception :
                 self._meta = {"rows":{}}
                 
@@ -44,6 +43,15 @@ class FaissManager:
         self.embeddings = self.model_loader.load_embeddings()  
         self.vs:Optional[FAISS] = None 
         log.info("FaissManager initialized", index_dir=str(self.index_dir), meta_path=str(self.meta_path))
+
+    def load_retriever(self, k=5):
+
+        vs = self.load_or_create()
+
+        return vs.as_retriever(
+            search_type="similarity",
+            search_kwargs={"k": k}
+        )    
              
 
     def _exists(self)->bool:
@@ -112,13 +120,15 @@ class ChatIngestor:
                 temp_base: str ="data/us",
                 faiss_base: str = "faiss_index",
                 use_session_dirs: bool = True,
-                session_id: Optional[str]= None
+                session_id: Optional[str]= None,
+                user_id=None
                 ):
         try:
             self.model_loader = ModelLoader()
 
             self.use_session = use_session_dirs
             self.session_id =session_id or generate_session_id()
+            self.user_id = user_id
 
             self.temp_base = Path(temp_base);self.temp_base.mkdir(parents=True,exist_ok=True)
             self.faiss_base = Path(faiss_base);self.faiss_base.mkdir(parents=True,exist_ok=True)
@@ -158,7 +168,7 @@ class ChatIngestor:
                 raise ValueError("No valid documents provided")
             chunks = self._split(docs,chunk_size=chunk_size,chunk_overlap=chunk_overlap)
             fm = FaissManager(self.faiss_dir,self.model_loader)
-
+            self.faiss_manager = fm
             texts = [c.page_content for c in chunks]
             metas = [c.metadata for c in chunks]
 

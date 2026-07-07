@@ -38,6 +38,8 @@ dependencies = [
     "jinja2",
     "pydantic",
     "langchain_google_genai",
-    
+    "pymongo",
+    "certifi>=2026.6.17",
+    "boto3",
 ]
 

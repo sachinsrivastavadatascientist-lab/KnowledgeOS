@@ -16,10 +16,11 @@ from exception.custom_exception import DocumentPortalException
 from utils.model_loader import ModelLoader
 from prompt.prompt_library import PROMPT_REGISTRY
 from model.models import PromptType
+from utils.history_manager import HistoryManager
 FAISS_BASE = os.getenv("FAISS_BASE","faiss_index")
 
 class ConversationalRAG:
-    def __init__(self,session_id:str,retriever=None):
+    def __init__(self,session_id:str,user_id: str,retriever=None):
         try:
             self.log =CustomLogger().get_logger(__name__)
             self.session_id =session_id
@@ -27,10 +28,13 @@ class ConversationalRAG:
             self.contextualize_prompt:ChatPromptTemplate = PROMPT_REGISTRY[PromptType.CONTEXTUALIZE_QUESTION.value]
             self.qa_prompt = PROMPT_REGISTRY[PromptType.CONTEXT_QA.value]
             self.retriever = retriever
+            self.history_manager = HistoryManager()
+            self.user_id = user_id
+            self.store = {}
 
             # Chain abhi mat banao
             self.chain = None
-            self.index_path = os.path.join(FAISS_BASE,session_id) 
+            
 
             if self.retriever is None:
                 self.load_retriever_from_faiss(self.index_path)
@@ -66,30 +70,38 @@ class ConversationalRAG:
             self.log.error("Failed to load FAISS vector store",error=str(e))
             raise DocumentPortalException("FAISS vector store loading error",sys)
 
-    def invoke(self,query:str):
-        try:
-            if self.chain is None:
-                raise DocumentPortalException(
-                    "RAG chain not initialized. Call load_retriever_from_faiss() first.",
-                    sys
-                )
-
-            config = {
-                "configurable":{
-                    "session_id":self.session_id
-                }
-            }
-
-            return self.chain.invoke(
-            {
-                "input":query
-            },
-            config=config
+    def invoke(self, query: str):
+        if self.chain is None:
+            raise DocumentPortalException(
+            "RAG chain not initialized. Call load_retriever_from_faiss() first.",
+            sys
         )
 
+        config = {
+            "configurable": {
+                "session_id": self.session_id
+            }
+        }
+
+        try:
+        # jaise jaise chain answer produce karega, waise waise yield hoga
+            for chunk in self.chain.stream(
+                {"input": query},
+                config=config
+            ):
+                yield chunk
+
+        # poora stream khatam hone ke baad hi history save karo
+            history = self.store[self.session_id]
+            self.history_manager.save_history(
+            session_id=self.session_id,
+            user_id=self.user_id,
+            history=history
+             )
+
         except Exception as e:
-            self.log.error("Failed to invoke chain",error=str(e))
-            raise DocumentPortalException("Invoke error",sys)    
+            self.log.error("Failed to invoke chain", error=str(e))
+            raise DocumentPortalException("Invoke error", sys) 
 
     def _load_llm(self):
         try:
@@ -148,15 +160,35 @@ class ConversationalRAG:
             self.log.error("Failed to build LCEL chain",error=str(e))
             raise DocumentPortalException("LCEL chain building error",sys)  
 
-    def _get_session_history(self,session_id: str):  # protected method create when we call from another method and we dont want to call it externally
+    def _get_session_history(
+    self,
+    session_id: str
+    ):
         try:
-            if not hasattr(self, "store"):
-                self.store = {}
 
+            # First time load from Mongo
             if session_id not in self.store:
-                self.store[session_id] = ChatMessageHistory()
 
-            return self.store[session_id]
+                self.store[session_id] = self.history_manager.load_history(
+                session_id=session_id,
+                user_id=self.user_id
+            )
+
+            history = self.store[session_id]
+
+            print("=" * 60)
+            print("LOADED HISTORY")
+            print(history.messages)
+            print("=" * 60)
+
+            return history
+
         except Exception as e:
-            self.log.error("Failed to access session history in retrieval module",error=str(e))
-            raise DocumentPortalException("Failed to access session history in retrieval module",sys)              
+            self.log.error(
+                "Failed to access session history",
+                error=str(e)
+            )
+            raise DocumentPortalException(
+            "Failed to access session history",
+            sys
+        )

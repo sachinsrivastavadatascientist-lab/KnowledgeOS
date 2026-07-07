@@ -85,7 +85,7 @@
     <section id="tab-chat" class="tab-panel">
       <div class="card">
         <h2>💬 Chat with your Documents</h2>
-        <p class="muted">Upload PDF/DOCX/TXT; we’ll index to FAISS and enable RAG chat.</p>
+        <p class="muted">Upload PDF/DOCX/TXT; we'll index to FAISS and enable RAG chat.</p>
 
         <form id="form-chat-index" class="form-grid" onsubmit="return false;">
           <div class="field">
@@ -94,18 +94,47 @@
             <small class="help">You can select multiple files.</small>
           </div>
 
-          <div class="grid-3">
+          <div class="grid-4">
             <div class="field">
-              <label for="chat-session">Session ID (optional)</label>
-              <input id="chat-session" type="text" placeholder="Leave blank for auto session" />
+              <label for="chat-user">User ID</label>
+              <input
+                id="chat-user"
+                type="text"
+                placeholder="Enter your User ID"
+                required
+              />
             </div>
+
             <div class="field">
-              <label for="chat-chunk">Chunk size</label>
-              <input id="chat-chunk" type="number" value="1000" min="200" step="100" />
+              <label for="chat-session">Session ID</label>
+              <input
+                id="chat-session"
+                type="text"
+                readonly
+                placeholder="Generated automatically"
+              />
             </div>
+
             <div class="field">
-              <label for="chat-overlap">Chunk overlap</label>
-              <input id="chat-overlap" type="number" value="200" min="0" step="50" />
+              <label for="chat-chunk">Chunk Size</label>
+              <input
+                id="chat-chunk"
+                type="number"
+                value="1000"
+                min="200"
+                step="100"
+              />
+            </div>
+
+            <div class="field">
+              <label for="chat-overlap">Chunk Overlap</label>
+              <input
+                id="chat-overlap"
+                type="number"
+                value="200"
+                min="0"
+                step="50"
+              />
             </div>
           </div>
 
@@ -156,154 +185,176 @@
   </footer>
 
   <script>
-  // Base URL for API (same origin when opened via FastAPI)
-  const API_BASE = "";
+    // Base URL for API (same origin when opened via FastAPI)
+    const API_BASE = "";
 
-  // Tab switching (unchanged)
-  const tabs = document.querySelectorAll(".tab-btn");
-  const panels = document.querySelectorAll(".tab-panel");
-  tabs.forEach(btn => {
-    btn.addEventListener("click", () => {
-      tabs.forEach(b => b.classList.remove("active"));
-      panels.forEach(p => p.classList.remove("active"));
-      btn.classList.add("active");
-      document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+    // Tab switching (unchanged)
+    const tabs = document.querySelectorAll(".tab-btn");
+    const panels = document.querySelectorAll(".tab-panel");
+    tabs.forEach(btn => {
+      btn.addEventListener("click", () => {
+        tabs.forEach(b => b.classList.remove("active"));
+        panels.forEach(p => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+      });
     });
-  });
 
-  // ===== ANALYZE =====
-  document.getElementById("btn-analyze").addEventListener("click", async () => {
-    const file = document.getElementById("an-file").files[0];
-    const out  = document.getElementById("an-json");
-    if (!file) { out.textContent = "Please upload a PDF."; return; }
+    // ===== ANALYZE =====
+    document.getElementById("btn-analyze").addEventListener("click", async () => {
+      const file = document.getElementById("an-file").files[0];
+      const out  = document.getElementById("an-json");
+      if (!file) { out.textContent = "Please upload a PDF."; return; }
 
-    try {
-      out.textContent = "Running analysis…";
-      const fd = new FormData();
-      fd.append("file", file); // <-- must be 'file' to match FastAPI
+      try {
+        out.textContent = "Running analysis…";
+        const fd = new FormData();
+        fd.append("file", file); // <-- must be 'file' to match FastAPI
 
-      const res = await fetch(`${API_BASE}/analyze`, { method: "POST", body: fd });
-      if (!res.ok) {
-        const err = await res.json().catch(()=>({detail:res.statusText}));
-        throw new Error(err.detail || `HTTP ${res.status}`);
+        const res = await fetch(`${API_BASE}/analyze`, { method: "POST", body: fd });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          throw new Error(err.detail || `HTTP ${res.status}`);
+        }
+        const json = await res.json();
+        out.textContent = JSON.stringify(json, null, 2);
+      } catch (e) {
+        out.textContent = "Error: " + (e.message || e);
       }
-      const json = await res.json();
-      out.textContent = JSON.stringify(json, null, 2);
-    } catch (e) {
-      out.textContent = "Error: " + (e.message || e);
-    }
-  });
+    });
 
-  // ===== COMPARE =====
-  document.getElementById("btn-compare").addEventListener("click", async () => {
-    const ref   = document.getElementById("cmp-ref").files[0];
-    const act   = document.getElementById("cmp-act").files[0];
-    const tbody = document.querySelector("#cmp-table tbody");
+    // ===== COMPARE =====
+    document.getElementById("btn-compare").addEventListener("click", async () => {
+      const ref   = document.getElementById("cmp-ref").files[0];
+      const act   = document.getElementById("cmp-act").files[0];
+      const tbody = document.querySelector("#cmp-table tbody");
 
-    if (!ref || !act) {
-      tbody.innerHTML = `<tr><td colspan="2" class="muted center">Upload both PDFs.</td></tr>`;
-      return;
-    }
-
-    try {
-      tbody.innerHTML = `<tr><td colspan="2" class="center">Comparing…</td></tr>`;
-
-      const fd = new FormData();
-      fd.append("reference", ref); // <-- must be 'reference'
-      fd.append("actual", act);    // <-- must be 'actual'
-
-      const res = await fetch(`${API_BASE}/compare`, { method: "POST", body: fd });
-      if (!res.ok) {
-        const err = await res.json().catch(()=>({detail:res.statusText}));
-        throw new Error(err.detail || `HTTP ${res.status}`);
-      }
-      const json = await res.json(); // { rows: [...] }
-      const rows = json.rows || [];
-      if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="2" class="muted center">No differences found.</td></tr>`;
+      if (!ref || !act) {
+        tbody.innerHTML = `<tr><td colspan="2" class="muted center">Upload both PDFs.</td></tr>`;
         return;
       }
-      tbody.innerHTML = rows.map(r => {
-        const page = r.Page ?? r.page ?? "";
-        const chg  = r.Changes ?? r.changes ?? "";
-        return `<tr><td>${page}</td><td>${chg}</td></tr>`;
-      }).join("");
-    } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="2" class="muted center">Error: ${e.message || e}</td></tr>`;
-    }
-  });
 
-  // ===== CHAT (index + ask) =====
-  let currentSession = null;
+      try {
+        tbody.innerHTML = `<tr><td colspan="2" class="center">Comparing…</td></tr>`;
 
-  document.getElementById("btn-build").addEventListener("click", async () => {
-    const files     = document.getElementById("chat-files").files;
-    const sessionId = document.getElementById("chat-session").value.trim();
-    const useSess   = document.getElementById("chat-sessionized").checked;
-    const k         = +document.getElementById("chat-k").value || 5;
-    const chunk     = +document.getElementById("chat-chunk").value || 1000;
-    const overlap   = +document.getElementById("chat-overlap").value || 200;
-    const meta      = document.getElementById("chat-meta");
+        const fd = new FormData();
+        fd.append("reference", ref); // <-- must be 'reference'
+        fd.append("actual", act);    // <-- must be 'actual'
 
-    if (!files.length) { meta.textContent = "Please upload at least one file."; return; }
-
-    try {
-      meta.textContent = "Building index…";
-
-      const fd = new FormData();
-      [...files].forEach(f => fd.append("files", f)); // <-- must be 'files'
-      if (sessionId) fd.append("session_id", sessionId);
-      fd.append("use_session_dirs", useSess ? "true" : "false");
-      fd.append("chunk_size", String(chunk));
-      fd.append("chunk_overlap", String(overlap));
-      fd.append("k", String(k));
-
-      const res = await fetch(`${API_BASE}/chat/index`, { method: "POST", body: fd });
-      if (!res.ok) {
-        const err = await res.json().catch(()=>({detail:res.statusText}));
-        throw new Error(err.detail || `HTTP ${res.status}`);
+        const res = await fetch(`${API_BASE}/compare`, { method: "POST", body: fd });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          throw new Error(err.detail || `HTTP ${res.status}`);
+        }
+        const json = await res.json(); // { rows: [...] }
+        const rows = json.rows || [];
+        if (!rows.length) {
+          tbody.innerHTML = `<tr><td colspan="2" class="muted center">No differences found.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = rows.map(r => {
+          const page = r.Page ?? r.page ?? "";
+          const chg  = r.Changes ?? r.changes ?? "";
+          return `<tr><td>${page}</td><td>${chg}</td></tr>`;
+        }).join("");
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="2" class="muted center">Error: ${e.message || e}</td></tr>`;
       }
-      const json = await res.json(); // { session_id, k, use_session_dirs }
-      currentSession = json.session_id || sessionId || null;
-      meta.textContent = `Indexed. session=${currentSession || "(none)"}, k=${json.k}`;
-    } catch (e) {
-      meta.textContent = "Indexing failed: " + (e.message || e);
-    }
-  });
+    });
 
-  document.getElementById("btn-ask").addEventListener("click", async () => {
-    const q        = document.getElementById("chat-q").value.trim();
-    const ans      = document.getElementById("chat-answer");
-    const useSess  = document.getElementById("chat-sessionized").checked;
-    const k        = +document.getElementById("chat-k").value || 5;
+    // ===== CHAT (index + ask) =====
+    // Session ID is generated by the backend only. Frontend never generates it.
+    let currentSession = null;
 
-    if (!q) { ans.textContent = "Please enter a question."; return; }
-    if (useSess && !currentSession) {
-      ans.textContent = "Build the index first (session-based mode is ON).";
-      return;
-    }
+    document.getElementById("btn-build").addEventListener("click", async () => {
+      const files   = document.getElementById("chat-files").files;
+      const userId  = document.getElementById("chat-user").value.trim();
+      const useSess = document.getElementById("chat-sessionized").checked;
+      const k       = +document.getElementById("chat-k").value || 5;
+      const chunk   = +document.getElementById("chat-chunk").value || 1000;
+      const overlap = +document.getElementById("chat-overlap").value || 200;
+      const meta    = document.getElementById("chat-meta");
 
-    try {
-      ans.textContent = "Thinking…";
+      if (!files.length) { meta.textContent = "Please upload at least one file."; return; }
+      if (!userId) { alert("Please enter a User ID."); return; }
 
-      const fd = new FormData();
-      fd.append("question", q);
-      fd.append("use_session_dirs", useSess ? "true" : "false");
-      fd.append("k", String(k));
-      if (useSess && currentSession) fd.append("session_id", currentSession);
+      try {
+        meta.textContent = "Building index…";
 
-      const res = await fetch(`${API_BASE}/chat/query`, { method: "POST", body: fd });
-      if (!res.ok) {
-        const err = await res.json().catch(()=>({detail:res.statusText}));
-        throw new Error(err.detail || `HTTP ${res.status}`);
+        const fd = new FormData();
+        [...files].forEach(f => fd.append("files", f)); // <-- must be 'files'
+        fd.append("user_id", userId);                   // <-- backend requires user_id
+        fd.append("use_session_dirs", useSess ? "true" : "false");
+        fd.append("chunk_size", String(chunk));
+        fd.append("chunk_overlap", String(overlap));
+        fd.append("k", String(k));
+
+        const res = await fetch(`${API_BASE}/chat/index`, { method: "POST", body: fd });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          alert(err.detail || `HTTP ${res.status}`);
+          throw new Error(err.detail || `HTTP ${res.status}`);
+        }
+        const json = await res.json(); // { session_id, status, k, use_session_dirs }
+
+        // Backend generates the session id; store it and auto-fill the textbox.
+        currentSession = json.session_id || null;
+        document.getElementById("chat-session").value = json.session_id || "";
+
+        meta.textContent = `Indexed. session=${currentSession || "(none)"}, k=${json.k}`;
+      } catch (e) {
+        meta.textContent = "Indexing failed: " + (e.message || e);
       }
-      const json = await res.json(); // { answer, ... }
-      ans.textContent = json.answer || "No answer.";
-    } catch (e) {
-      ans.textContent = "Query failed: " + (e.message || e);
-    }
-  });
-</script>
+    });
 
+    document.getElementById("btn-ask").addEventListener("click", async () => {
+      const q       = document.getElementById("chat-q").value.trim();
+      const userId  = document.getElementById("chat-user").value.trim();
+      const ans     = document.getElementById("chat-answer");
+      const useSess = document.getElementById("chat-sessionized").checked;
+      const k       = +document.getElementById("chat-k").value || 5;
+
+      if (!q) { ans.textContent = "Please enter a question."; return; }
+      if (!userId) { alert("Please enter a User ID."); return; }
+      if (useSess && !currentSession) {
+        ans.textContent = "Build the index first (session-based mode is ON).";
+        return;
+      }
+
+      try {
+        ans.textContent = "Thinking…";
+
+        const fd = new FormData();
+        fd.append("question", q);
+        fd.append("user_id", userId);                   // <-- backend requires user_id
+        fd.append("use_session_dirs", useSess ? "true" : "false");
+        fd.append("k", String(k));
+        if (currentSession) fd.append("session_id", currentSession);
+
+        const res = await fetch(`${API_BASE}/chat/query`, {
+          method: "POST",
+          body: fd
+        });
+
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error(err);
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+
+        ans.textContent = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          ans.textContent += decoder.decode(value);
+        }
+      } catch (e) {
+        ans.textContent = "Query failed: " + (e.message || e);
+      }
+    });
+  </script>
 </body>
 </html>

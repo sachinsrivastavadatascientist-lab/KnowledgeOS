@@ -8,6 +8,18 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    # 👇 Ye naya part hai - MongoDB container chalega test ke saath
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ping: 1})'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -23,3 +35,5 @@ jobs:
 
       - name: Run unit tests
         run: uv run python -m pytest tests -v
+        env:
+          MONGODB_URI: mongodb://localhost:27017   # 👈 agar tumhara code env var use karta hai

@@ -32,7 +32,7 @@ class ConversationalRAG:
     def __init__(self,session_id:str,user_id: str,retriever=None):
         try:
             self.log =CustomLogger().get_logger(__name__)
-            self.compressor = CohereRerank(model="rerank-english-v3.0",top_n=5,)
+            self.compressor = CohereRerank(model="rerank-english-v3.0",top_n=5,cohere_api_key=COHERE_API_KEY)
             self.session_id =session_id
             self.llm = self._load_llm()
             self.contextualize_prompt:ChatPromptTemplate = PROMPT_REGISTRY[PromptType.CONTEXTUALIZE_QUESTION.value]

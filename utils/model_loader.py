@@ -81,6 +81,8 @@ class ApiKeyManager:
             "API Keys Loaded Successfully",
             available_keys=list(self.api_keys.keys())
         )
+        for key, value in self.api_keys.items():
+            os.environ.setdefault(key, value) 
 
     def get(self, key: str):
 

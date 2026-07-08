@@ -41,5 +41,6 @@ dependencies = [
     "pymongo",
     "certifi>=2026.6.17",
     "boto3",
+    "langchain-cohere>=0.6.0",
 ]
 

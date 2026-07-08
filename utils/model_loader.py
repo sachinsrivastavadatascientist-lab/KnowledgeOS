@@ -24,6 +24,7 @@ class ApiKeyManager:
         "GOOGLE_API_KEY",
         "ANTHROPIC_API_KEY",
         "MONGO_URL",
+        "COHERE_API_KEY"
     ]
 
     def __init__(self):

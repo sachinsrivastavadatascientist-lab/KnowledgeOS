@@ -8,6 +8,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.output_parsers import StrOutputParser
 from operator import itemgetter
 from typing import List,Optional
+from dotenv import load_dotenv
 from langchain_core.messages import BaseMessage
 from langchain_core.prompts import ChatPromptTemplate
 
@@ -17,17 +18,33 @@ from utils.model_loader import ModelLoader
 from prompt.prompt_library import PROMPT_REGISTRY
 from model.models import PromptType
 from utils.history_manager import HistoryManager
+from langchain_cohere import ChatCohere, CohereRerank
+from langchain_classic.retrievers.contextual_compression import ContextualCompressionRetriever
+from langchain_community.document_transformers import LongContextReorder
+
 FAISS_BASE = os.getenv("FAISS_BASE","faiss_index")
+
+if os.getenv("ENV", "local").lower() != "production":
+    load_dotenv()
+    COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 
 class ConversationalRAG:
     def __init__(self,session_id:str,user_id: str,retriever=None):
         try:
             self.log =CustomLogger().get_logger(__name__)
+            self.compressor = CohereRerank(model="rerank-english-v3.0",top_n=5,)
             self.session_id =session_id
             self.llm = self._load_llm()
             self.contextualize_prompt:ChatPromptTemplate = PROMPT_REGISTRY[PromptType.CONTEXTUALIZE_QUESTION.value]
             self.qa_prompt = PROMPT_REGISTRY[PromptType.CONTEXT_QA.value]
-            self.retriever = retriever
+            if retriever is not None:
+                self.retriever = ContextualCompressionRetriever(
+                    base_compressor=self.compressor,
+                    base_retriever=retriever
+                )
+            else:
+                self.retriever = None
+                
             self.history_manager = HistoryManager()
             self.user_id = user_id
             self.store = {}
@@ -46,6 +63,10 @@ class ConversationalRAG:
         except Exception as e:
             self.log.error("Failed to initate the ConversatinalRAG class",error=str(e))
             raise DocumentPortalException("Inialization error in ConversatinalRAG",sys)
+            
+    @staticmethod
+    def _reorder_docs(docs):
+        return LongContextReorder().transform_documents(docs)        
     
     def load_retriever_from_faiss(self,index_path:str):
         """
@@ -61,7 +82,12 @@ class ConversationalRAG:
                               embeddings,
                               allow_dangerous_deserialization=True
                               )   
-            self.retriever = vectorstore.as_retriever(search_type = "similarity",search_kwargs={"k":5})
+            retriever = vectorstore.as_retriever(search_type = "similarity",search_kwargs={"k":5})
+            self.retriever = ContextualCompressionRetriever(
+                    base_compressor=self.compressor,
+                    base_retriever=retriever
+                )
+            
             
             self.chain = self._build_lcel_chain()
             self.log.info("FAISS vector store loaded Successfully",session_id = self.session_id,index_path=index_path)
@@ -128,12 +154,15 @@ class ConversationalRAG:
                 |StrOutputParser()
             )
 
+            compressor = CohereRerank(model="rerank-english-v3.0")
+
             ######## Adding RAG chain
             self.rag_chain = (
              {
                 "context":(
                         self.history_aware_chain
                         |self.retriever
+                        |self._reorder_docs 
                         |self._format_docs
                     ),
                 "input":itemgetter("input"),

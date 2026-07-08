@@ -22,11 +22,26 @@ from langchain_cohere import ChatCohere, CohereRerank
 from langchain_classic.retrievers.contextual_compression import ContextualCompressionRetriever
 from langchain_community.document_transformers import LongContextReorder
 
+
 FAISS_BASE = os.getenv("FAISS_BASE","faiss_index")
 
 if os.getenv("ENV", "local").lower() != "production":
     load_dotenv()
     COHERE_API_KEY = os.getenv("COHERE_API_KEY")
+
+import re
+
+PII_PATTERNS = {
+    "EMAIL": re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
+    "CREDIT_CARD": re.compile(r"\b(?:\d[ -]?){13,19}\b"),
+}
+
+def mask_pii(text: str) -> str:
+    for label, pattern in PII_PATTERNS.items():
+        text = pattern.sub(f"[{label}_REDACTED]", text)
+    return text
+
+
 
 class ConversationalRAG:
     def __init__(self,session_id:str,user_id: str,retriever=None):
@@ -97,6 +112,7 @@ class ConversationalRAG:
             raise DocumentPortalException("FAISS vector store loading error",sys)
 
     def invoke(self, query: str):
+        query = mask_pii(query)
         if self.chain is None:
             raise DocumentPortalException(
             "RAG chain not initialized. Call load_retriever_from_faiss() first.",

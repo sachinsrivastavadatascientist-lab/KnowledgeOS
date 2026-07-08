@@ -33,6 +33,14 @@
         {
           "name": "AWS_REGION",
           "value": "ap-southeast-2"
+        },
+        {
+          "name": "LANGSMITH_TRACING",
+          "value": "true"
+        },
+        {
+          "name": "LANGSMITH_PROJECT",
+          "value": "document-portal"
         }
       ],
       "secrets": [

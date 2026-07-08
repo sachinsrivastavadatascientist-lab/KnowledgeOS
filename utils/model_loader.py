@@ -163,7 +163,7 @@ class ModelLoader:
 
             provider_key = os.getenv(
                 "LLM_PROVIDER",
-                "anthropic"
+                "groq"
             ).lower()
 
             if provider_key not in llm_block:
